@@ -1,0 +1,75 @@
+# Production-ready compose: Postgres + migrations + web + monitoring worker.
+#
+#   docker compose up --build
+#
+# Set real values (especially WORKER_SECRET and VAPID keys) via a .env file or
+# your orchestrator's secret store. Do NOT commit real secrets.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vinted
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vinted}
+      POSTGRES_DB: vinted
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vinted"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["npm", "run", "db:migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://vinted:${POSTGRES_PASSWORD:-vinted}@db:5432/vinted?schema=public
+      NODE_ENV: production
+    restart: "no"
+
+  web:
+    build: .
+    command: ["npm", "start"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://vinted:${POSTGRES_PASSWORD:-vinted}@db:5432/vinted?schema=public
+      NODE_ENV: production
+      VINTED_ADAPTER: ${VINTED_ADAPTER:-mock}
+      VINTED_BASE_URL: ${VINTED_BASE_URL:-https://www.vinted.com}
+      VINTED_COOKIE: ${VINTED_COOKIE:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:you@example.com}
+      WORKER_SECRET: ${WORKER_SECRET:-change-me-to-a-long-random-string}
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["npm", "run", "worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://vinted:${POSTGRES_PASSWORD:-vinted}@db:5432/vinted?schema=public
+      NODE_ENV: production
+      VINTED_ADAPTER: ${VINTED_ADAPTER:-mock}
+      VINTED_BASE_URL: ${VINTED_BASE_URL:-https://www.vinted.com}
+      VINTED_COOKIE: ${VINTED_COOKIE:-}
+      MONITOR_POLL_INTERVAL_SEC: ${MONITOR_POLL_INTERVAL_SEC:-60}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:you@example.com}
+    restart: unless-stopped
+
+volumes:
+  pgdata:

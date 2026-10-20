@@ -1,0 +1,59 @@
+{
+  "name": "vinted-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A self-hosted personal Vinted monitoring & review assistant. Monitoring via unofficial polling adapter (user-configured). No automated purchasing.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "worker": "tsx src/worker/index.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "clsx": "^2.1.1",
+    "dotenv": "^16.6.1",
+    "drizzle-orm": "^0.45.4",
+    "next": "^14.2.33",
+    "next-themes": "^0.3.0",
+    "pino": "^9.5.0",
+    "postgres": "^3.4.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "web-push": "^3.6.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^20.16.11",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@types/web-push": "^3.6.4",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.33",
+    "happy-dom": "^15.7.4",
+    "pino-pretty": "^11.3.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
+  },
+  "engines": {
+    "node": ">=18.18"
+  }
+}
