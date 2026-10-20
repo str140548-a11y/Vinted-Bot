@@ -3,7 +3,6 @@ import { db, schema } from "@/db";
 import { handle } from "@/lib/api";
 import { getMonitorHealth, getSettings } from "@/lib/settings";
 import { getAdapter } from "@/lib/vinted";
-import { expireReviewWindows } from "@/lib/monitor";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +12,6 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   return handle(async () => {
-    await expireReviewWindows();
     const settings = await getSettings();
     const health = await getMonitorHealth();
     const adapter = getAdapter(settings.adapter as "mock" | "http");
@@ -41,10 +39,14 @@ export async function GET() {
       .from(schema.notifications)
       .where(gte(schema.notifications.createdAt, todayStart));
 
-    const [underReview] = await db
-      .select({ c: count() })
-      .from(schema.reviewWindows)
-      .where(eq(schema.reviewWindows.status, "reviewing"));
+    const activeCheckoutRows = await db
+      .select({ status: schema.checkoutSessions.status })
+      .from(schema.checkoutSessions);
+    const underReview = {
+      c: activeCheckoutRows.filter(
+        (r) => r.status === "inspecting" || r.status === "launched",
+      ).length,
+    };
 
     const [confirmedPurchases] = await db
       .select({ c: count() })

@@ -94,11 +94,6 @@ export const pushSubscriptionInput = z.object({
   userAgent: z.string().optional().nullable(),
 });
 
-export const reviewDecisionInput = z.object({
-  decision: z.enum(["approved", "rejected", "reviewing"]),
-  notes: z.string().max(500).optional().nullable(),
-});
-
 export const purchaseInput = z.object({
   listingId: z.string().min(1),
   deliveryPointName: z.string().max(200).optional().nullable(),

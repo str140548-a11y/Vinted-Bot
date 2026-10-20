@@ -15,7 +15,7 @@ import {
 const nav = [
   { href: "/", label: "Overview", icon: IconDashboard },
   { href: "/listings", label: "Live Listings", icon: IconList },
-  { href: "/reviews", label: "Review Queue", icon: IconClock },
+  { href: "/reviews", label: "Checkout Queue", icon: IconClock },
   { href: "/searches", label: "Saved Searches", icon: IconSearch },
   { href: "/purchases", label: "Purchase History", icon: IconCart },
   { href: "/settings", label: "Settings", icon: IconSettings },

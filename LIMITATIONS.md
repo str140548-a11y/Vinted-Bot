@@ -37,9 +37,28 @@ Because of this, the app is built around a **swappable adapter**:
 - **Done:** store multiple pickup points (name, provider, address, postcode, distance, priority), reorder, enable/disable, set primary.
 - **Limit:** there is no public Vinted/locker directory API, so locations are entered manually, and the app **cannot select a locker on Vinted for you**. At checkout we show your primary point as a reminder. Locker availability depends on the seller/parcel/method and is decided by Vinted per order.
 
-### 5. The 15-minute Review Window — ✅ Honest local timer
-- **Done & tested:** on detection, a review window opens with a countdown (default 15:00, configurable). You can Buy now, Keep reviewing, or Reject. On expiry it's marked expired and kept in history; you can reopen the listing.
-- **Honesty:** this is a **local timer only**. Vinted has **no** delayed-purchase, reservation, or scheduled-payment mechanism for third parties. The countdown never implies the item is held or guaranteed to remain available. Advisory warnings (missing details, suspiciously low price, low seller rating) are shown but never block you.
+### 5. Assisted checkout & Vinted's pending-payment hold — ⚙️ Assisted, with hard limits
+
+This replaces the earlier "auto-starting 15-minute Review Window". It is the result of investigating Vinted's **actual** checkout/reservation behaviour.
+
+**What Vinted actually does (three separate mechanisms — don't conflate them):**
+1. **"Reserve item"** ([Vinted Help: Reserving an item](https://www.vinted.com/help/59-reserving-an-item)) is a **seller** action for a specific buyer. A buyer or third-party tool cannot trigger it. Not relevant here.
+2. **Pending-payment state.** When a buyer taps **Buy now** and enters Vinted's real checkout, the item goes into a transient "in progress" state so two people don't both pay; another buyer opening it may be told it's part of another transaction. Crucially this is a **side effect of a genuine checkout being open** — not a reservation you can create, extend, or rely on. Its exact duration/guarantee is **Vinted's, undocumented, and varies** (Vinted itself notes payment-processing timings can range widely). We therefore **never assume a fixed 15-minute hold**.
+3. **Payment authentication (3DS/SCA).** The final pay step runs between **you, Vinted's payment processor, and your bank**. No third party may sit in or bypass it.
+
+**What this app does (assisted checkout):**
+- Records your checkout journey: `inspecting → launched → completed / abandoned` — every transition is an explicit **user action**, never inferred from Vinted.
+- Builds the fastest honest handoff: a deep link to the **genuine listing** where Buy now lives (`buildCheckoutDeepLink`). Tapping Buy now **there** is what makes Vinted create its real pending hold.
+- Offers an **optional, user-started local inspection stopwatch**. It is clearly labelled "local only — Vinted has NOT reserved this item" and is never auto-started on detection.
+- Shows total cost, a budget guardrail, your preferred pickup reminder, and advisory warnings (missing details, suspiciously low price, low seller rating) — none blocking.
+
+**What this app cannot / will not do:**
+- ❌ Open Vinted's checkout session for you (no public API; automating the authenticated flow violates ToS).
+- ❌ Create, extend, measure, or guarantee the pending-payment hold.
+- ❌ Enter or bypass payment authentication (3DS).
+- ❌ Store/replay payment credentials or simulate a completed purchase.
+
+**Per-requirement verdict** (your six points): detect match → ✅; open genuine checkout ASAP → ⚙️ assisted deep-link only; inspect before confirming → ✅ (but **not** inside the bank's 3DS screen); let Vinted handle the real hold → ✅ (that's exactly the model); complete/abandon on your decision → ✅ (you do it on Vinted, app records outcome); preferred pickup → ⚙️ reminder only.
 
 ### 6. Dashboard & data — ✅ Implemented
 - Overview counts (active searches, detected today, available matches, notifications today, under review, confirmed purchases) are computed from real DB rows. Purchase "confirmed" status only ever reflects **your** manual confirmation, since the app cannot read Vinted order state.

@@ -10,8 +10,6 @@ interface PickupLocation {
   id: string;
   name: string;
   provider: string | null;
-  address: string | null;
-  postcode: string | null;
   enabled: boolean;
   isPrimary: boolean;
   priority: number;
@@ -24,29 +22,38 @@ interface SettingsShape {
   defaultMaxPrice: number | null;
 }
 
+interface CheckoutSession {
+  id: string;
+  status: string;
+}
+
 /**
- * Confirmation screen before sending the user to Vinted.
+ * Assisted Checkout launcher.
  *
- * HONESTY: This dialog NEVER completes a purchase. There is no authorized Vinted
- * checkout API available to third parties. "Confirm & open on Vinted" records a
- * local purchase INTENT and opens the genuine listing in a new tab, with your
- * preferred pickup point shown as a reminder to select it manually at checkout.
+ * HONESTY (see LIMITATIONS.md): this app cannot open Vinted's checkout session
+ * or create any reservation. Vinted's genuine pending-payment hold is created
+ * only when YOU tap "Buy now" inside Vinted. This dialog gets you there as fast
+ * as honestly possible: it records the session, shows the total + your pickup
+ * preference, then opens the real listing. You inspect, authenticate with your
+ * bank, and complete or abandon the purchase on Vinted itself.
  */
 export function BuyDialog({
-  review,
+  listing,
   onClose,
   onDone,
 }: {
-  review: { id: string; listing: ListingLike };
+  listing: ListingLike;
   onClose: () => void;
   onDone: () => void;
 }) {
-  const l = review.listing;
+  const l = listing;
   const [pickups, setPickups] = useState<PickupLocation[]>([]);
   const [settings, setSettings] = useState<SettingsShape | null>(null);
   const [selectedPickup, setSelectedPickup] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [launched, setLaunched] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -62,22 +69,41 @@ export function BuyDialog({
   }, []);
 
   const total = l.totalCost ?? l.price + (l.serviceFee ?? 0) + (l.shippingFee ?? 0);
-  const overBudget =
-    settings?.maxTotalSpend != null && total > settings.maxTotalSpend;
+  const overBudget = settings?.maxTotalSpend != null && total > settings.maxTotalSpend;
   const chosenPickup = pickups.find((p) => p.id === selectedPickup) ?? null;
 
-  const confirm = async () => {
+  // Open the real Vinted listing and record the handoff (status: launched).
+  const launchToVinted = async () => {
     setBusy(true);
     try {
-      // Record the local decision + purchase intent.
-      await apiSend(`/api/reviews/${review.id}`, "PATCH", { decision: "approved" });
+      const session = await apiSend<CheckoutSession>("/api/checkout", "POST", {
+        listingId: l.id,
+        deliveryPointName: chosenPickup?.name ?? null,
+      });
+      setSessionId(session.id);
+      await apiSend(`/api/checkout/${session.id}`, "PATCH", { status: "launched" });
+      // Also record a purchase intent for the history view.
       await apiSend("/api/purchases", "POST", {
         listingId: l.id,
         deliveryPointName: chosenPickup?.name ?? null,
         status: "intended",
       });
-      // Open the genuine Vinted listing so the user completes checkout there.
       window.open(l.url, "_blank", "noopener,noreferrer");
+      setLaunched(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // After launching, the user tells us the real outcome on Vinted.
+  const report = async (status: "completed" | "abandoned") => {
+    setBusy(true);
+    try {
+      if (sessionId) await apiSend(`/api/checkout/${sessionId}`, "PATCH", { status });
+      await apiSend("/api/purchases", "POST", {
+        listingId: l.id,
+        status: status === "completed" ? "confirmed" : "abandoned",
+      });
       onDone();
     } finally {
       setBusy(false);
@@ -91,7 +117,7 @@ export function BuyDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between">
-          <h2 className="text-lg font-semibold">Confirm purchase</h2>
+          <h2 className="text-lg font-semibold">Assisted checkout</h2>
           <button className="btn-ghost" onClick={onClose} aria-label="Close">
             <IconX />
           </button>
@@ -145,6 +171,7 @@ export function BuyDialog({
               className="input"
               value={selectedPickup ?? ""}
               onChange={(e) => setSelectedPickup(e.target.value || null)}
+              disabled={launched}
             >
               <option value="">No preference</option>
               {pickups
@@ -159,39 +186,63 @@ export function BuyDialog({
           )}
         </div>
 
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-900/30 dark:text-amber-300">
-          <p className="font-medium">How this works</p>
-          <p className="mt-1">
-            This app cannot buy on your behalf — Vinted has no authorized checkout API for third
-            parties. Confirming records your intent and opens the real listing in a new tab.
-            Complete payment on Vinted, and select{" "}
-            <strong>{chosenPickup ? chosenPickup.name : "your preferred pickup point"}</strong> there
-            if it&apos;s offered for this item.
-          </p>
-        </div>
+        {!launched ? (
+          <>
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-900/30 dark:text-amber-300">
+              <p className="font-medium">How assisted checkout works — and what it can&apos;t do</p>
+              <ul className="mt-1 list-disc space-y-1 pl-4">
+                <li>This opens the <strong>genuine Vinted listing</strong> where <strong>Buy now</strong> lives.</li>
+                <li>
+                  Any temporary hold is created <strong>by Vinted</strong> when you tap Buy now — this app
+                  doesn&apos;t reserve the item and makes no promise about how long it&apos;s held.
+                </li>
+                <li>You inspect, authenticate with your bank (3DS), and complete or abandon on Vinted.</li>
+                <li>
+                  Select{" "}
+                  <strong>{chosenPickup ? chosenPickup.name : "your preferred pickup point"}</strong>{" "}
+                  there if Vinted offers it for this item.
+                </li>
+                <li>No payment is taken by this app. It never stores card details or simulates a purchase.</li>
+              </ul>
+            </div>
 
-        <label className="mb-4 flex items-start gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="mt-0.5"
-            checked={acknowledged}
-            onChange={(e) => setAcknowledged(e.target.checked)}
-          />
-          <span>
-            I understand this opens Vinted and I&apos;ll complete the purchase myself. No payment is
-            taken by this app.
-          </span>
-        </label>
+            <label className="mb-4 flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={acknowledged}
+                onChange={(e) => setAcknowledged(e.target.checked)}
+              />
+              <span>I understand this opens Vinted and I&apos;ll complete the purchase myself there.</span>
+            </label>
 
-        <div className="flex justify-end gap-2">
-          <button className="btn-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn-primary" disabled={!acknowledged || busy} onClick={confirm}>
-            <IconExternal width={16} height={16} />
-            {busy ? "Opening…" : "Confirm & open on Vinted"}
-          </button>
-        </div>
+            <div className="flex justify-end gap-2">
+              <button className="btn-secondary" onClick={onClose}>Cancel</button>
+              <button className="btn-primary" disabled={!acknowledged || busy} onClick={launchToVinted}>
+                <IconExternal width={16} height={16} />
+                {busy ? "Opening…" : "Open Vinted to buy"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-4 rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800 dark:border-brand-900 dark:bg-brand-900/30 dark:text-brand-300">
+              Vinted opened in a new tab. Complete the purchase there, then tell us what happened so
+              your history stays accurate.
+              <a href={l.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 underline">
+                <IconExternal width={14} height={14} /> Reopen Vinted listing
+              </a>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button className="btn-secondary" disabled={busy} onClick={() => report("abandoned")}>
+                I didn&apos;t buy it
+              </button>
+              <button className="btn-primary" disabled={busy} onClick={() => report("completed")}>
+                I bought it on Vinted
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 # Vinted Assistant
 
-A self-hosted, single-user assistant that monitors Vinted listings, filters them against your saved searches, alerts you fast, gives you a **15-minute local review window** before you buy, and remembers your preferred pickup points — then sends you to the **real Vinted listing** to complete the purchase yourself.
+A self-hosted, single-user assistant that monitors Vinted listings, filters them against your saved searches, alerts you fast, and provides an **honest assisted-checkout handoff** (with an optional local inspection stopwatch) that drops you onto the **real Vinted listing** — where Vinted's genuine Buy-now and any real pending-payment hold happen — to complete the purchase yourself.
 
 Built with **Next.js 14 (App Router) + TypeScript + Tailwind + Drizzle ORM**. Runs on **SQLite out of the box** (zero infra) and on **PostgreSQL** in production.
 
@@ -20,7 +20,8 @@ This app is deliberately honest about what is and isn't possible with Vinted. Pl
 | Telegram notifications | ⚙️ **Implemented, requires a bot token.** |
 | Automated / "quick" purchase | 🚫 **Not possible & not done.** No authorized checkout API. Quick Buy opens the real listing. |
 | Programmatic locker/pickup selection | 🚫 **Not possible.** We store preferences and remind you at checkout. |
-| 15-minute delayed/reserved transaction on Vinted | 🚫 **Does not exist.** The Review Window is an **honest local timer** — it never reserves the item. |
+| Assisted checkout to Vinted's real pending-payment hold | ⚙️ **Assisted handoff only.** The app records your journey and deep-links to the genuine listing; Vinted's real hold is created when **you** tap Buy now there. No reservation is faked, assumed, or timed by this app. |
+| 15-minute delayed/reserved transaction created by this app | 🚫 **Does not exist / not done.** An optional inspection stopwatch is **local only** and never implies the item is held. |
 
 **This app never:** asks for your Vinted password, stores payment-card details, simulates a successful purchase, or claims an item is reserved.
 
@@ -29,12 +30,12 @@ This app is deliberately honest about what is and isn't possible with Vinted. Pl
 ## Features
 
 - **Saved searches** with keywords, brand, category, size, condition, min/max price, **max total cost (incl. fees)**, preferred/excluded brands, excluded keywords, seller-rating bounds, new-listings-only, price-drop alerts, and active/paused state. Create, edit, duplicate, pause, resume, delete.
-- **Monitoring engine**: fetch → filter → dedup (unique Vinted id) → persist first-seen → detect price drops → auto-start review window → notify. Records last check + status per search. Resumes after restart (all state in DB). Handles errors, rate limits (429 → backoff), and connection failures.
+- **Monitoring engine**: fetch → filter → dedup (unique Vinted id) → persist first-seen → detect price drops → notify. Records last check + status per search. Resumes after restart (all state in DB). Handles errors, rate limits (429 → backoff), and connection failures. **Does not** auto-create checkouts, timers, or reservations on detection.
 - **Notifications**: in-app bell + browser Web Push + optional Telegram. Quiet hours (priority alerts bypass), sound toggle, grouping toggle, priority "deal" flagging.
-- **Review Queue** with live 15:00 countdown, advisory warnings (missing image/condition, low seller rating, suspiciously low price), and **Buy now / Keep reviewing / Reject**. Timer expiry marks the window expired and keeps it in history.
-- **Buy flow**: confirmation screen with item, seller, condition, estimated total, budget check, preferred-pickup reminder, explicit acknowledgment, then opens the genuine Vinted listing.
+- **Assisted checkout (Checkout Queue)**: an honest `inspecting → launched → completed/abandoned` journey toward Vinted's **real** checkout. Advisory warnings (missing image/condition, low seller rating, suspiciously low price) and an **optional, user-started local inspection stopwatch** (clearly labelled — never a Vinted reservation). See `LIMITATIONS.md` for how this maps to Vinted's genuine pending-payment behaviour.
+- **Checkout launcher**: confirmation screen with item, seller, condition, estimated total, budget check, preferred-pickup reminder, explicit acknowledgment, then opens the genuine Vinted listing where Buy now lives; afterwards you report whether you bought it. It never stores cards, touches payment authentication, or simulates a purchase.
 - **Delivery preferences**: multiple pickup points with name/provider/address/postcode/distance, priority ordering, enable/disable, set primary.
-- **Dashboard**: Overview stats + monitor health, Live Listings, Review Queue, Saved Searches, Purchase History.
+- **Dashboard**: Overview stats + monitor health, Live Listings, Checkout Queue, Saved Searches, Purchase History.
 - **Settings**: data source, notifications, buying guardrails, review-window duration, poll interval, data retention, logs & troubleshooting.
 - Dark/light mode, responsive, compact listing cards, prominent prices, availability + source badges.
 
@@ -162,7 +163,8 @@ Next.js App Router (UI + API routes)
           │
           ├── /api/*           → JSON API (Zod-validated), Drizzle queries
           │
-   src/lib/monitor.ts          → engine: fetch, filter, dedup, review windows, notify, health
+   src/lib/monitor.ts          → engine: fetch, filter, dedup, price drops, notify, health
+   src/lib/checkout.ts         → assisted-checkout sessions + honest Vinted deep-link handoff
    src/lib/matching.ts         → pure match/filter logic (unit-tested)
    src/lib/notify.ts           → quiet hours, in-app + Web Push + Telegram fan-out
    src/lib/vinted/             → adapter interface + mock + http (unofficial) implementations
@@ -183,7 +185,7 @@ npm run typecheck # tsc --noEmit
 npm run lint      # next lint
 ```
 
-29 tests cover the pure matching logic, quiet-hours edge cases (incl. midnight wrap), the mock adapter contract, the HTTP adapter's parsing + error handling (429/403/malformed), and an **end-to-end monitor integration test** against a temp SQLite DB (detection, dedup, review-window creation, notification gating, filtering, health counters).
+35 tests cover the pure matching logic, quiet-hours edge cases (incl. midnight wrap), the mock adapter contract, the HTTP adapter's parsing + error handling (429/403/malformed), an **end-to-end monitor integration test** against a temp SQLite DB (detection, dedup, notification gating, filtering, health counters, and the guarantee that detection creates **no** auto-checkout), and the **assisted-checkout service** (session start/resume, optional local timer, explicit launched→completed/abandoned transitions, deep-link integrity).
 
 ---
 

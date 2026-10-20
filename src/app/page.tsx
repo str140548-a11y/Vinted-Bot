@@ -34,7 +34,7 @@ const cards: { key: keyof Health["overview"]; label: string; href?: string }[] =
   { key: "detectedToday", label: "Detected today", href: "/listings" },
   { key: "availableMatches", label: "Available matches", href: "/listings" },
   { key: "notificationsToday", label: "Notifications today", href: "/notifications" },
-  { key: "underReview", label: "Under review", href: "/reviews" },
+  { key: "underReview", label: "Active checkouts", href: "/reviews" },
   { key: "confirmedPurchases", label: "Confirmed purchases", href: "/purchases" },
 ];
 
@@ -151,13 +151,14 @@ export default function OverviewPage() {
               {data ? ` (~${data.settings.pollIntervalSec}s)` : ""}, not true real-time push.
             </li>
             <li>
-              • The <strong>Review Window</strong> is a local timer. It does <strong>not</strong> reserve
-              or hold the item on Vinted.
+              • <strong>Assisted checkout</strong> opens the real Vinted listing where Buy now lives.
+              Any temporary hold is created <strong>by Vinted</strong> when you tap Buy now — this app
+              never reserves items or assumes a fixed hold duration.
             </li>
             <li>
               • Quick Buy / purchase is{" "}
               {data?.settings.quickBuyEnabled ? "enabled" : "disabled"} — it only opens the real listing;
-              it never buys automatically.
+              it never buys automatically, stores cards, or touches payment authentication.
             </li>
           </ul>
         </div>

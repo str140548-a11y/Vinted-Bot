@@ -1,4 +1,4 @@
-import { and, eq, lt, lte } from "drizzle-orm";
+import { eq, lt } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { SavedSearch } from "@/db/schema";
 import { logEvent } from "./logger";
@@ -189,16 +189,12 @@ async function persistNewMatch(
 
   await db.insert(schema.priceHistory).values({ listingId: listing.id, price: raw.price });
 
-  // Auto-open a Review Window so the inspection timer starts the moment the
-  // item is detected (honest LOCAL timer; does NOT reserve the item on Vinted).
-  const durationSec = settings.reviewWindowSec ?? 900;
-  await db.insert(schema.reviewWindows).values({
-    listingId: listing.id,
-    priceAtStart: raw.price,
-    durationSec,
-    expiresAt: new Date(Date.now() + durationSec * 1000),
-    status: "reviewing",
-  });
+  // NOTE: We intentionally do NOT auto-start any timer here. An inspection timer
+  // is opt-in (started by the user from the Checkout/Inspect screen) and is a
+  // purely LOCAL stopwatch — it never implies Vinted has reserved the item.
+  // Vinted's real pending-payment hold only exists once the user opens the
+  // genuine checkout inside Vinted; see src/lib/checkout.ts and LIMITATIONS.md.
+  void settings;
 
   if (search.notify) {
     const feeNote = raw.totalCost != null ? ` (total ~${raw.totalCost} ${raw.currency})` : "";
@@ -238,8 +234,6 @@ export async function runMonitorTick(): Promise<{
     results.push(await runSearch(search));
   }
 
-  await expireReviewWindows();
-
   const anyError = results.some((r) => r.status === "error");
   const totalMatches = results.reduce((a, r) => a + r.newMatches, 0);
   const health = await getMonitorHealth();
@@ -260,20 +254,6 @@ export async function runMonitorTick(): Promise<{
     .where(eq(schema.monitorHealth.id, "singleton"));
 
   return { searches: searches.length, results };
-}
-
-/** Mark review windows as expired once their deadline passes. */
-export async function expireReviewWindows(): Promise<number> {
-  const res = await db
-    .update(schema.reviewWindows)
-    .set({ status: "expired", decidedAt: new Date() })
-    .where(
-      and(
-        eq(schema.reviewWindows.status, "reviewing"),
-        lte(schema.reviewWindows.expiresAt, new Date()),
-      ),
-    );
-  return res.changes ?? 0;
 }
 
 /** Apply data-retention: delete old listings (cascade) beyond the window. */

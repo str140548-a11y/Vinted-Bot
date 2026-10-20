@@ -135,7 +135,7 @@ export default function SettingsPage() {
           <Row label="Max total spend">
             <input className="input" type="number" defaultValue={s.maxTotalSpend ?? ""} onBlur={(e) => patch({ maxTotalSpend: e.target.value ? Number(e.target.value) : null })} />
           </Row>
-          <Row label="Review window (minutes)">
+          <Row label="Inspection timer (minutes, local only)">
             <input
               className="input"
               type="number"

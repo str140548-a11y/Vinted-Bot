@@ -33,6 +33,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 beforeEach(async () => {
   // Reset tables between tests.
+  await db.delete(schema.checkoutSessions);
   await db.delete(schema.reviewWindows);
   await db.delete(schema.priceHistory);
   await db.delete(schema.notifications);
@@ -43,7 +44,7 @@ beforeEach(async () => {
 });
 
 describe("monitor engine (integration)", () => {
-  it("detects matches, dedupes, and creates review windows + notifications", async () => {
+  it("detects matches, dedupes, notifies, and does NOT auto-create checkouts/timers", async () => {
     await db.insert(schema.savedSearches).values({
       name: "Any items",
       active: true,
@@ -56,14 +57,14 @@ describe("monitor engine (integration)", () => {
     expect(firstMatches).toBeGreaterThan(0);
 
     const listings1 = await db.select().from(schema.listings);
-    const reviews1 = await db.select().from(schema.reviewWindows);
     const notifs1 = await db.select().from(schema.notifications);
+    const checkouts1 = await db.select().from(schema.checkoutSessions);
 
-    // Every new listing gets a review window and a notification.
-    expect(reviews1.length).toBe(listings1.length);
+    // Each new listing produces exactly one notification.
     expect(notifs1.length).toBe(listings1.length);
-    expect(reviews1.every((r) => r.status === "reviewing")).toBe(true);
     expect(listings1.every((l) => l.source === "mock")).toBe(true);
+    // Honest behaviour: detection must NOT auto-start any checkout/reservation.
+    expect(checkouts1.length).toBe(0);
 
     // Second tick immediately after: same ids => dedup => no new listings.
     const second = await runMonitorTick();

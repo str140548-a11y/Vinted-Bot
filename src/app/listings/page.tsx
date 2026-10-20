@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiGet } from "@/lib/client";
 import { ListingCard, type ListingLike } from "@/components/ListingCard";
-import { ReviewButton } from "@/components/ReviewButton";
+import { CheckoutButton } from "@/components/ReviewButton";
 
 export default function ListingsPage() {
   const [listings, setListings] = useState<ListingLike[]>([]);
@@ -60,7 +60,7 @@ export default function ListingsPage() {
             <ListingCard
               key={l.id}
               listing={l}
-              footer={<ReviewButton listingId={l.id} onChanged={load} />}
+              footer={<CheckoutButton listingId={l.id} onChanged={load} />}
             />
           ))}
         </div>

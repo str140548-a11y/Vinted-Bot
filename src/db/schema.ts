@@ -149,6 +149,50 @@ export const purchases = sqliteTable("purchases", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now()),
 });
 
+// ---------------------------------------------------------------------------
+// Assisted checkout sessions.
+//
+// Models the user's journey to Vinted's REAL checkout. The app does NOT open
+// Vinted's checkout session or create any reservation itself — that only
+// happens inside Vinted when the user taps Buy now. We record the handoff and
+// the user's own outcome, plus an OPTIONAL local inspection stopwatch the user
+// chooses to start. No state here implies Vinted reserved the item.
+// ---------------------------------------------------------------------------
+export const checkoutSessions = sqliteTable(
+  "checkout_sessions",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    listingId: text("listing_id")
+      .notNull()
+      .references(() => listings.id, { onDelete: "cascade" }),
+
+    priceAtStart: real("price_at_start").notNull(),
+    totalAtStart: real("total_at_start"),
+    deliveryPointName: text("delivery_point_name"),
+
+    // Optional, user-started local inspection stopwatch (NOT a Vinted hold).
+    inspectionStartedAt: integer("inspection_started_at", { mode: "timestamp_ms" }),
+    inspectionDurationSec: integer("inspection_duration_sec"),
+
+    // Journey state (all driven by explicit user action, never inferred from Vinted):
+    //   inspecting  -> user is reviewing the listing/seller before handoff
+    //   launched    -> user opened the genuine Vinted listing/checkout (new tab)
+    //   completed   -> user reported they completed the purchase on Vinted
+    //   abandoned   -> user decided not to buy / closed without buying
+    status: text("status").notNull().default("inspecting"),
+    launchedAt: integer("launched_at", { mode: "timestamp_ms" }),
+    decidedAt: integer("decided_at", { mode: "timestamp_ms" }),
+    notes: text("notes"),
+
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now()),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now()),
+  },
+  (t) => ({
+    statusIdx: index("checkout_sessions_status_idx").on(t.status),
+    listingIdx: index("checkout_sessions_listing_idx").on(t.listingId),
+  }),
+);
+
 export const pickupLocations = sqliteTable(
   "pickup_locations",
   {
@@ -257,6 +301,7 @@ export type NewSavedSearch = typeof savedSearches.$inferInsert;
 export type Listing = typeof listings.$inferSelect;
 export type NewListing = typeof listings.$inferInsert;
 export type ReviewWindow = typeof reviewWindows.$inferSelect;
+export type CheckoutSession = typeof checkoutSessions.$inferSelect;
 export type Purchase = typeof purchases.$inferSelect;
 export type PickupLocation = typeof pickupLocations.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
