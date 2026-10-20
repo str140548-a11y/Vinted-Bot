@@ -5,6 +5,7 @@ import { env, webPushConfigured } from "./env";
 import { logEvent } from "./logger";
 import { isWithinQuietHours } from "./quietHours";
 import { getSettings } from "./settings";
+import { sendExpoPush } from "./expoPush";
 
 let vapidConfigured = false;
 function ensureVapid(): boolean {
@@ -61,6 +62,17 @@ export async function dispatchNotification(payload: NotifyPayload): Promise<void
   if (settings.webPushEnabled && ensureVapid()) {
     await sendWebPush(payload);
   }
+
+  // Android app push (Expo). Always attempted when tokens exist; honors the
+  // notification-sound setting and the priority flag.
+  await sendExpoPush({
+    title: payload.title,
+    body: payload.body,
+    url: payload.url,
+    listingId: payload.listingId,
+    priority: payload.priority,
+    sound: settings.notificationSound,
+  });
 
   if (settings.telegramEnabled && settings.telegramBotToken && settings.telegramChatId) {
     await sendTelegram(settings.telegramBotToken, settings.telegramChatId, payload);

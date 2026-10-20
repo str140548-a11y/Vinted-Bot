@@ -15,6 +15,13 @@
       "when": 1792512450557,
       "tag": "0001_low_sauron",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792532806396,
+      "tag": "0002_acoustic_thor_girl",
+      "breakpoints": true
     }
   ]
 }

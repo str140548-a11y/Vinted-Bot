@@ -16,6 +16,8 @@ next-env.d.ts
 # database
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 /prisma/dev.db
 /prisma/*.db
 

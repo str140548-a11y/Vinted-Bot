@@ -4,6 +4,13 @@ A self-hosted, single-user assistant that monitors Vinted listings, filters them
 
 Built with **Next.js 14 (App Router) + TypeScript + Tailwind + Drizzle ORM**. Runs on **SQLite out of the box** (zero infra) and on **PostgreSQL** in production.
 
+> 📱 **Android app:** there is now a native **React Native (Expo) Android app** in
+> [`android-app/`](./android-app). It talks to this backend's API and receives Android push
+> notifications. The web dashboard is kept too. To build an installable APK, see
+> [`android-app/README.md`](./android-app/README.md). The backend serves both; it also exposes
+> `POST /api/push/expo` for the app to register push tokens, and `src/middleware.ts` adds CORS
+> for `/api/*` (optionally lock it down with `ALLOWED_ORIGIN`).
+
 ---
 
 ## ⚠️ Read this first — honest capabilities

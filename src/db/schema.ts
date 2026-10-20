@@ -245,6 +245,16 @@ export const pushSubscriptions = sqliteTable("push_subscriptions", {
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now()),
 });
 
+// Expo push tokens — registered by the React Native Android app so the backend
+// worker can deliver push notifications to the phone via Expo's Push API.
+export const expoPushTokens = sqliteTable("expo_push_tokens", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  token: text("token").notNull().unique(),
+  platform: text("platform").notNull().default("android"),
+  deviceName: text("device_name"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now()),
+});
+
 export const settings = sqliteTable("settings", {
   id: text("id").primaryKey().default("singleton"),
   quietHoursStart: text("quiet_hours_start"),
@@ -308,3 +318,4 @@ export type Notification = typeof notifications.$inferSelect;
 export type Settings = typeof settings.$inferSelect;
 export type LogEntry = typeof logEntries.$inferSelect;
 export type MonitorHealth = typeof monitorHealth.$inferSelect;
+export type ExpoPushToken = typeof expoPushTokens.$inferSelect;
